@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Order Flow Status — Olo + DoorDash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0e13;
+    --bg-2:#0f141c;
+    --panel:#141a24;
+    --panel-2:#171e29;
+    --line:#232c3a;
+    --line-soft:#1c2530;
+    --txt:#e9e5db;
+    --txt-mute:#8a93a2;
+    --txt-dim:#5c6573;
+    --brass:#c8a25b;
+    --brass-deep:#a07c39;
+    --brass-glow:rgba(200,162,91,.16);
+    --ok:#46b483;
+    --ok-bg:rgba(70,180,131,.10);
+    --warn:#e0aa3e;
+    --warn-bg:rgba(224,170,62,.10);
+    --down:#e2543c;
+    --down-bg:rgba(226,84,60,.12);
+    --maint:#5f86c9;
+    --maint-bg:rgba(95,134,201,.10);
+    --unknown:#646e7d;
+    --unknown-bg:rgba(100,110,125,.10);
+    --radius:14px;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:'Space Grotesk',system-ui,-apple-system,sans-serif;
+    --body:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(200,162,91,.05), transparent 60%),
+      radial-gradient(900px 500px at -10% 0%, rgba(95,134,201,.045), transparent 55%),
+      var(--bg);
+    color:var(--txt);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  .brass-rule{height:2px;background:linear-gradient(90deg,transparent,var(--brass-deep) 20%,var(--brass) 50%,var(--brass-deep) 80%,transparent);opacity:.7}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 20px 56px}
+
+  /* Header */
+  header.app{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 0 18px}
+  .brand{display:flex;flex-direction:column;gap:4px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--brass);font-weight:500}
+  h1{font-family:var(--disp);font-weight:600;font-size:26px;letter-spacing:-.01em;margin:0;line-height:1.1}
+  h1 .pipe{color:var(--txt-dim);font-weight:400;margin:0 8px}
+  .sub{color:var(--txt-mute);font-size:13px}
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{
+    font-family:var(--body);font-size:13px;color:var(--txt);
+    background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+    transition:border-color .15s, background .15s, transform .05s;
+  }
+  .btn:hover{border-color:var(--brass-deep);background:var(--panel-2)}
+  .btn:active{transform:translateY(1px)}
+  .btn.brass{border-color:var(--brass-deep);color:var(--brass)}
+  .btn .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
+  .icon{width:15px;height:15px;display:inline-block;flex:0 0 auto}
+
+  /* Verdict (signature element) */
+  .verdict{
+    position:relative;margin-top:8px;border-radius:var(--radius);overflow:hidden;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+  }
+  .verdict .accent{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--unknown)}
+  .verdict.is-ok .accent{background:var(--ok)} .verdict.is-warn .accent{background:var(--warn)}
+  .verdict.is-down .accent{background:var(--down)} .verdict.is-maint .accent{background:var(--maint)}
+  .verdict-inner{padding:22px 24px 22px 28px}
+  .verdict-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--txt-mute);margin-bottom:10px}
+  .verdict-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+  .verdict-pill{
+    font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    padding:5px 10px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;
+  }
+  .p-ok{color:var(--ok);background:var(--ok-bg)} .p-warn{color:var(--warn);background:var(--warn-bg)}
+  .p-down{color:var(--down);background:var(--down-bg)} .p-maint{color:var(--maint);background:var(--maint-bg)}
+  .p-unknown{color:var(--unknown);background:var(--unknown-bg)}
+  .verdict-line{font-family:var(--disp);font-weight:500;font-size:21px;letter-spacing:-.01em;line-height:1.25;margin:14px 0 0}
+  .verdict-line strong{font-weight:700}
+  .verdict-line .ok{color:var(--ok)} .verdict-line .warn{color:var(--warn)}
+  .verdict-line .down{color:var(--down)} .verdict-line .maint{color:var(--maint)}
+  .blame{
+    margin-top:16px;padding:13px 15px;border-radius:10px;border:1px dashed var(--brass-deep);
+    background:var(--brass-glow);display:none;gap:10px;align-items:flex-start;
+  }
+  .blame.show{display:flex}
+  .blame .icon{color:var(--brass);margin-top:2px}
+  .blame .t{font-size:13.5px;color:var(--txt)}
+  .blame .t b{color:var(--brass)}
+
+  /* Cards */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  @media (max-width:740px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 14px;border-bottom:1px solid var(--line-soft)}
+  .svc{display:flex;align-items:center;gap:11px}
+  .svc-mark{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:15px;border:1px solid var(--line)}
+  .svc-mark.olo{color:#e9e5db;background:linear-gradient(160deg,#2a3340,#1a212b)}
+  .svc-mark.dd{color:#ff4d57;background:linear-gradient(160deg,#2a1418,#1c0f12)}
+  .svc-name{font-family:var(--disp);font-weight:600;font-size:16px}
+  .svc-role{font-size:11.5px;color:var(--txt-dim);font-family:var(--mono);letter-spacing:.04em}
+  .status-tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 11px;border-radius:999px}
+  .s-ok{color:var(--ok);background:var(--ok-bg)} .s-warn{color:var(--warn);background:var(--warn-bg)}
+  .s-down{color:var(--down);background:var(--down-bg)} .s-maint{color:var(--maint);background:var(--maint-bg)}
+  .s-unknown{color:var(--unknown);background:var(--unknown-bg)}
+  .status-tag .led{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+  .pulse .led{animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .card-body{padding:14px 18px 18px}
+  .meta-row{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--txt-mute);font-family:var(--mono);padding:2px 0 12px;border-bottom:1px solid var(--line-soft);margin-bottom:12px}
+  .meta-row .v{color:var(--txt)}
+  .comp-h{font-size:11px;font-family:var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--txt-dim);margin:2px 0 8px}
+  .comp{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .comp:last-child{border-bottom:0}
+  .comp .nm{color:var(--txt)} .comp.key .nm{color:var(--txt);font-weight:600}
+  .comp .key-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--brass);border:1px solid var(--brass-deep);border-radius:4px;padding:1px 5px;margin-left:8px;text-transform:uppercase}
+  .comp .cs{font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .cs.ok{color:var(--ok)} .cs.warn{color:var(--warn)} .cs.down{color:var(--down)} .cs.maint{color:var(--maint)}
+  .toggle-comp{margin-top:10px;font-family:var(--mono);font-size:11.5px;color:var(--txt-mute);background:none;border:0;cursor:pointer;padding:4px 0;letter-spacing:.04em}
+  .toggle-comp:hover{color:var(--brass)}
+  .incident{margin-top:12px;padding:11px 13px;border-radius:9px;background:var(--bg-2);border:1px solid var(--line-soft)}
+  .incident .ih{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:4px}
+  .incident .imp{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:4px}
+  .incident .body{font-size:12.5px;color:var(--txt-mute);line-height:1.45}
+  .incident .ts{font-family:var(--mono);font-size:11px;color:var(--txt-dim);margin-top:6px}
+  .err{font-size:12.5px;color:var(--down);font-family:var(--mono);background:var(--down-bg);border:1px solid rgba(226,84,60,.3);border-radius:8px;padding:9px 11px;margin-top:4px;line-height:1.45}
+  .err a{color:var(--brass)}
+
+  /* Log */
+  .logwrap{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .log-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+  .log-title{font-family:var(--disp);font-weight:600;font-size:15px;display:flex;align-items:center;gap:9px}
+  .log-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .btn.sm{padding:6px 10px;font-size:12px}
+  .log-body{max-height:340px;overflow:auto;font-family:var(--mono);font-size:12.5px}
+  .log-row{display:grid;grid-template-columns:152px 120px 1fr;gap:12px;padding:9px 18px;border-bottom:1px solid var(--line-soft);align-items:baseline}
+  @media (max-width:640px){.log-row{grid-template-columns:1fr;gap:2px;padding:11px 16px}}
+  .log-row:hover{background:var(--bg-2)}
+  .log-time{color:var(--txt-dim)}
+  .log-svc{font-weight:600}
+  .log-svc.olo{color:#aeb6c2} .log-svc.dd{color:#ff6b73} .log-svc.sys{color:var(--brass)}
+  .log-msg{color:var(--txt-mute)}
+  .log-msg .to-ok{color:var(--ok)} .log-msg .to-warn{color:var(--warn)} .log-msg .to-down{color:var(--down)} .log-msg .to-maint{color:var(--maint)}
+  .log-empty{padding:26px 18px;text-align:center;color:var(--txt-dim);font-family:var(--mono);font-size:12.5px}
+
+  /* Settings */
+  .settings{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+  .set-head{padding:13px 18px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:var(--disp);font-weight:600;font-size:14px}
+  .set-head .chev{transition:transform .2s;color:var(--txt-mute)}
+  .settings.open .chev{transform:rotate(180deg)}
+  .set-body{display:none;padding:4px 18px 18px;border-top:1px solid var(--line-soft)}
+  .settings.open .set-body{display:block}
+  .field{display:flex;flex-direction:column;gap:5px;margin-top:14px}
+  .field label{font-size:12px;color:var(--txt-mute);font-family:var(--mono);letter-spacing:.04em}
+  .field input,.field select{
+    background:var(--bg-2);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:9px 11px;font-family:var(--mono);font-size:12.5px;width:100%;
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--brass-deep)}
+  .field .hint{font-size:11px;color:var(--txt-dim)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:640px){.row2{grid-template-columns:1fr}}
+  .switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft)}
+  .switch:last-child{border-bottom:0}
+  .switch .lab{font-size:13px}
+  .switch .lab small{display:block;color:var(--txt-dim);font-size:11.5px;font-family:var(--mono)}
+  .toggle{position:relative;width:42px;height:24px;border-radius:999px;background:var(--line);border:1px solid var(--line);cursor:pointer;flex:0 0 auto;transition:background .15s}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--txt-mute);transition:transform .15s,background .15s}
+  .toggle.on{background:var(--brass-glow);border-color:var(--brass-deep)}
+  .toggle.on::after{transform:translateX(18px);background:var(--brass)}
+  footer{margin-top:26px;text-align:center;color:var(--txt-dim);font-family:var(--mono);font-size:11px;letter-spacing:.04em;line-height:1.7}
+  footer a{color:var(--brass-deep)}
+  .countdown{font-family:var(--mono);font-size:11.5px;color:var(--txt-dim)}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--panel-2);border:1px solid var(--brass-deep);color:var(--txt);font-size:13px;padding:11px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;font-family:var(--mono)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="brass-rule"></div>
+<div class="wrap">
+
+  <header class="app">
+    <div class="brand">
+      <span class="eyebrow">Store Ops · Vendor Uptime</span>
+      <h1>Order Flow Status<span class="pipe">/</span><span style="color:var(--txt-mute);font-weight:500">Olo + DoorDash</span></h1>
+      <span class="sub">Independent, timestamped read on who's actually down — built to settle the blame game.</span>
+    </div>
+    <div class="controls">
+      <span class="countdown" id="countdown">—</span>
+      <button class="btn" id="refreshBtn" title="Refresh now">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        Refresh
+      </button>
+      <button class="btn brass" id="settingsBtn" title="Settings">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 6 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H0a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 1.3 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- VERDICT -->
+  <section class="verdict" id="verdict">
+    <div class="accent"></div>
+    <div class="verdict-inner">
+      <div class="verdict-label">Current verdict</div>
+      <div class="verdict-head" id="verdictHead">
+        <span class="verdict-pill p-unknown">Checking…</span>
+      </div>
+      <p class="verdict-line" id="verdictLine">Polling both status feeds…</p>
+      <div class="blame" id="blameBox">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <span class="t" id="blameText"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICE CARDS -->
+  <div class="grid">
+    <div class="card" id="card-olo">
+      <div class="card-top">
+        <div class="svc">
+          <div class="svc-mark olo">O</div>
+          <div>
+            <div class="svc-name">Olo</div>
+            <div class="svc-role">RECEIVES · PROCESSES ORDERS</div>
+          </div>
+        </div>
+        <span class="status-tag s-unknown" id="tag-olo"><span class="led"></span>Checking</span>
+      </div>
+      <div class="card-body" id="body-olo"></div>
+    </div>
+
+    <div class="card" id="card-dd">
+      <div class="card-top">
+        <div class="svc">
+          <div class="svc-mark dd">D</div>
+          <div>
+            <div class="svc-name">DoorDash</div>
+            <div class="svc-role">ONLINE ORDER · DELIVERY · SENDS TO OLO</div>
+          </div>
+        </div>
+        <span class="status-tag s-unknown" id="tag-dd"><span class="led"></span>Checking</span>
+      </div>
+      <div class="card-body" id="body-dd"></div>
+    </div>
+  </div>
+
+  <!-- EVIDENCE LOG -->
+  <section class="logwrap">
+    <div class="log-top">
+      <div class="log-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="var(--brass)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/></svg>
+        Evidence Log
+      </div>
+      <div class="log-actions">
+        <button class="btn sm" id="copyLogBtn">Copy summary</button>
+        <button class="btn sm" id="exportBtn">Export JSON</button>
+        <button class="btn sm" id="clearLogBtn">Clear</button>
+      </div>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-empty">No status changes recorded yet. Every time either service flips state, it's stamped here.</div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="settings" id="settings">
+    <div class="set-head" id="setHead">
+      <span>Settings</span>
+      <svg class="icon chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <div class="set-body">
+      <div class="row2">
+        <div class="field">
+          <label>Refresh interval</label>
+          <select id="intervalSel">
+            <option value="30">Every 30 seconds</option>
+            <option value="60" selected>Every 60 seconds</option>
+            <option value="120">Every 2 minutes</option>
+            <option value="300">Every 5 minutes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>CORS proxy (optional)</label>
+          <input id="proxyInput" placeholder="https://your-proxy/?url=" autocomplete="off" spellcheck="false">
+          <span class="hint">Leave blank to fetch direct. Only needed if a feed is blocked in your browser.</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Olo status feed (Atlassian Statuspage summary URL)</label>
+        <input id="oloUrl" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>DoorDash status feed (Atlassian Statuspage summary URL)</label>
+        <input id="ddUrl" autocomplete="off" spellcheck="false">
+        <span class="hint">If DoorDash's feed 404s, paste the correct base + <code>/api/v2/summary.json</code> from their status page.</span>
+      </div>
+      <div style="margin-top:16px">
+        <div class="switch">
+          <div class="lab">Sound alert on state change<small>Short tone when a service goes down or recovers</small></div>
+          <div class="toggle" id="tgSound"></div>
+        </div>
+        <div class="switch">
+          <div class="lab">Browser notifications<small>Desktop/mobile push when something flips</small></div>
+          <div class="toggle" id="tgNotify"></div>
+        </div>
+        <div class="switch">
+          <div class="lab">Flash tab title on outage<small>Title bar blinks while a service is down</small></div>
+          <div class="toggle on" id="tgFlash"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn brass" id="saveBtn">Save settings</button>
+        <button class="btn" id="resetBtn">Reset to defaults</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Reads the official Atlassian Statuspage feeds for each service. Status pages can lag a live incident by a few minutes —
+    this tool shows what each vendor is reporting, with a timestamp, so there's a neutral record.<br>
+    Local time: <span id="tz"></span> · Data stays on this device.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- safe storage (works hosted; degrades to memory in sandboxed preview) ----
+  var mem = {};
+  var store = {
+    get:function(k){ try{ return localStorage.getItem(k); }catch(e){ return (k in mem)?mem[k]:null; } },
+    set:function(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } }
+  };
+
+  var DEFAULTS = {
+    interval: 60,
+    proxy: "",
+    oloUrl: "https://status.olo.com/api/v2/summary.json",
+    ddUrl:  "https://status.doordash.com/api/v2/summary.json",
+    sound: false, notify: false, flash: true
+  };
+
+  function loadCfg(){
+    var c = {};
+    try { c = JSON.parse(store.get("ofs_cfg")||"{}"); } catch(e){ c = {}; }
+    for (var k in DEFAULTS){ if(!(k in c)) c[k]=DEFAULTS[k]; }
+    return c;
+  }
+  function saveCfg(c){ store.set("ofs_cfg", JSON.stringify(c)); }
+  var cfg = loadCfg();
+
+  // Components that sit on YOUR order path — highlighted as "key"
+  var KEY = {
+    olo: ["dispatch","order","ordering","serve","rails","api","ois","online ordering","menu","checkout"],
+    dd:  ["online ordering","storefront","drive","marketplace","merchant portal","merchant tablet","api","order","fulfillment","menu"]
+  };
+
+  // Map Statuspage statuses -> our state buckets
+  function compState(s){
+    switch(s){
+      case "operational": return "ok";
+      case "degraded_performance": return "warn";
+      case "partial_outage": return "warn";
+      case "major_outage": return "down";
+      case "under_maintenance": return "maint";
+      default: return "unknown";
+    }
+  }
+  function indState(ind){
+    switch(ind){
+      case "none": return "ok";
+      case "minor": return "warn";
+      case "major": return "down";
+      case "critical": return "down";
+      case "maintenance": return "maint";
+      default: return "unknown";
+    }
+  }
+  var RANK = { ok:0, maint:1, warn:2, down:3, unknown:-1 };
+  var WORDS = {
+    ok:"operational", warn:"degraded", down:"down", maint:"maintenance", unknown:"unreachable"
+  };
+  var TAGCLASS = { ok:"s-ok", warn:"s-warn", down:"s-down", maint:"s-maint", unknown:"s-unknown" };
+
+  function isKey(name, which){
+    var n = (name||"").toLowerCase();
+    return KEY[which].some(function(k){ return n.indexOf(k)>-1; });
+  }
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function fmtTime(d){ try{ return new Date(d).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); }catch(e){ return ""; } }
+  function nowStamp(){ return new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
+
+  // ---- fetch a statuspage summary ----
+  function fetchFeed(url){
+    var u = cfg.proxy ? (cfg.proxy + encodeURIComponent(url)) : url;
+    return fetch(u, {cache:"no-store", mode:"cors"})
+      .then(function(r){ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
+  }
+
+  // ---- state ----
+  var lastState = { olo:null, dd:null };   // remembered to detect transitions
+  var latest = { olo:null, dd:null };       // last parsed payloads
+  var log = [];
+  try { log = JSON.parse(store.get("ofs_log")||"[]"); } catch(e){ log = []; }
+  var timer=null, countdownTimer=null, nextAt=0, flashTimer=null, origTitle=document.title;
+
+  // ---- render one service card ----
+  function renderCard(which, data, err){
+    var bodyEl = document.getElementById("body-"+which);
+    var tagEl  = document.getElementById("tag-"+which);
+    if(err){
+      tagEl.className = "status-tag s-unknown";
+      tagEl.innerHTML = '<span class="led"></span>Unreachable';
+      bodyEl.innerHTML = '<div class="err">Couldn\'t reach this feed: '+esc(err)+
+        '.<br>If it\'s a CORS block, set a proxy in Settings, or correct the feed URL. Olo\'s feed is public; DoorDash may need its exact base URL.</div>';
+      return { state:"unknown" };
+    }
+
+    var ind = data.status && data.status.indicator;
+    var state = indState(ind);
+    var desc = (data.status && data.status.description) || "Unknown";
+    var comps = (data.components||[]).filter(function(c){ return !c.group; }); // skip group containers
+    // Worst real component can override an over-optimistic indicator
+    var worst = state;
+    comps.forEach(function(c){
+      var cs = compState(c.status);
+      if(RANK[cs] > RANK[worst]) worst = cs;
+    });
+    if (RANK[worst] > RANK[state]) state = worst;
+
+    var incidents = (data.incidents||[]).filter(function(i){ return i.status!=="resolved" && i.status!=="completed"; });
+
+    // tag
+    tagEl.className = "status-tag "+TAGCLASS[state]+(state==="down"||state==="warn"?" pulse":"");
+    tagEl.innerHTML = '<span class="led"></span>'+esc(WORDS[state]);
+
+    // sort: key + non-operational first
+    var keyComps = comps.filter(function(c){ return isKey(c.name, which); });
+    var probComps = comps.filter(function(c){ return compState(c.status)!=="ok" && !isKey(c.name, which); });
+    var shown = keyComps.concat(probComps);
+    var rest = comps.filter(function(c){ return shown.indexOf(c)<0; });
+
+    function compRow(c){
+      var cs = compState(c.status);
+      var key = isKey(c.name, which);
+      return '<div class="comp '+(key?"key":"")+'">'+
+        '<span class="nm">'+esc(c.name)+(key?'<span class="key-tag">order path</span>':'')+'</span>'+
+        '<span class="cs '+cs+'">'+esc((c.status||"").replace(/_/g," "))+'</span></div>';
+    }
+
+    var html = '';
+    html += '<div class="meta-row"><span>Reported: <span class="v">'+esc(desc)+'</span></span>'+
+            '<span>Checked '+nowStamp()+'</span></div>';
+
+    // active incidents
+    incidents.slice(0,3).forEach(function(i){
+      var imp = i.impact||"minor";
+      var impColor = imp==="critical"||imp==="major" ? "var(--down-bg)" : (imp==="minor"?"var(--warn-bg)":"var(--maint-bg)");
+      var impTxt = imp==="critical"||imp==="major" ? "var(--down)" : (imp==="minor"?"var(--warn)":"var(--maint)");
+      var upd = (i.incident_updates&&i.incident_updates[0]) || {};
+      html += '<div class="incident"><div class="ih">'+
+        '<span class="imp" style="background:'+impColor+';color:'+impTxt+'">'+esc(imp)+'</span>'+
+        esc(i.name)+'</div>'+
+        (upd.body? '<div class="body">'+esc(upd.body).slice(0,260)+'</div>':'')+
+        '<div class="ts">'+esc(i.status)+' · '+fmtTime(i.updated_at||i.created_at)+'</div></div>';
+    });
+
+    html += '<div class="comp-h" style="margin-top:14px">Components</div>';
+    html += shown.map(compRow).join("") || '<div class="comp"><span class="nm" style="color:var(--txt-dim)">No order-path components reported.</span></div>';
+    if (rest.length){
+      html += '<div id="rest-'+which+'" style="display:none">'+rest.map(compRow).join("")+'</div>';
+      html += '<button class="toggle-comp" data-which="'+which+'">+ '+rest.length+' more components</button>';
+    }
+
+    bodyEl.innerHTML = html;
+    var t = bodyEl.querySelector(".toggle-comp");
+    if(t){ t.addEventListener("click", function(){
+      var r = document.getElementById("rest-"+which);
+      var open = r.style.display!=="none";
+      r.style.display = open?"none":"block";
+      t.textContent = open ? ("+ "+rest.length+" more components") : "− hide components";
+    }); }
+
+    return { state:state, desc:desc, incidents:incidents };
+  }
+
+  // ---- the verdict + blame logic ----
+  function renderVerdict(oloR, ddR){
+    var v = document.getElementById("verdict");
+    var head = document.getElementById("verdictHead");
+    var line = document.getElementById("verdictLine");
+    var blameBox = document.getElementById("blameBox");
+    var blameText = document.getElementById("blameText");
+
+    var os = oloR.state, ds = ddR.state;
+    var worst = RANK[os]>=RANK[ds] ? os : ds;
+    // normalise unknown
+    var vstate = worst==="unknown" ? (os==="unknown"&&ds==="unknown"?"unknown":(os==="unknown"?ds:os)) : worst;
+
+    v.className = "verdict is-"+(vstate==="unknown"?"warn":vstate);
+
+    function pill(s){
+      var cls = {ok:"p-ok",warn:"p-warn",down:"p-down",maint:"p-maint",unknown:"p-unknown"}[s];
+      return '<span class="verdict-pill '+cls+'">'+esc(WORDS[s])+'</span>';
+    }
+    function svcSpan(name,s){ return '<strong class="'+s+'">'+name+'</strong> is '+
+      '<span class="'+s+'">'+WORDS[s]+'</span>'; }
+
+    head.innerHTML = '<span class="verdict-pill p-unknown" style="border-color:var(--line);color:var(--txt-mute)">Olo</span>'+pill(os)+
+                     '<span style="width:8px"></span>'+
+                     '<span class="verdict-pill p-unknown" style="border-color:var(--line);color:var(--txt-mute)">DoorDash</span>'+pill(ds);
+
+    var msg;
+    if (os==="ok" && ds==="ok"){
+      msg = 'Both clear. <strong class="ok">Olo</strong> and <strong class="ok">DoorDash</strong> are reporting all systems operational. '+
+            'If orders still aren\'t flowing, it\'s likely local — your network, tablet, or POS link.';
+    } else if (os!=="ok" && ds==="ok"){
+      msg = svcSpan("DoorDash","ok")+', but '+svcSpan("Olo",os)+'. '+
+            (os==="down"?'Orders DoorDash sends may not be landing — point at Olo.':'Olo is showing trouble on its side.');
+    } else if (ds!=="ok" && os==="ok"){
+      msg = svcSpan("Olo","ok")+', but '+svcSpan("DoorDash",ds)+'. '+
+            (ds==="down"?'New online/delivery orders likely aren\'t being created or sent — point at DoorDash.':'DoorDash is showing trouble on its side.');
+    } else if (os!=="ok" && ds!=="ok"){
+      msg = 'Both are reporting issues: '+svcSpan("Olo",os)+' and '+svcSpan("DoorDash",ds)+'. Check each card for which component.';
+    } else {
+      msg = 'Status partially unavailable. See the cards below for what each feed returned.';
+    }
+    line.innerHTML = msg;
+
+    // Cross-blame: does one feed name the other as the cause?
+    var blame = scanCrossBlame(oloR, ddR);
+    if (blame){
+      blameBox.classList.add("show");
+      blameText.innerHTML = blame;
+    } else {
+      blameBox.classList.remove("show");
+    }
+
+    // tab flash
+    handleFlash(vstate==="down");
+  }
+
+  function scanCrossBlame(oloR, ddR){
+    function txt(r){
+      if(!r.incidents) return "";
+      return r.incidents.map(function(i){
+        var b = (i.incident_updates||[]).map(function(u){return u.body||"";}).join(" ");
+        return (i.name||"")+" "+b;
+      }).join(" ").toLowerCase();
+    }
+    var oloTxt = txt(oloR), ddTxt = txt(ddR);
+    if (oloTxt.indexOf("doordash")>-1 || oloTxt.indexOf("door dash")>-1){
+      return 'Olo\'s own status page is attributing an active incident to <b>DoorDash</b>. That\'s a neutral, timestamped pointer at DoorDash — capture it before it resolves.';
+    }
+    if (ddTxt.indexOf("olo")>-1){
+      return 'DoorDash\'s status page references <b>Olo</b> in an active incident.';
+    }
+    return null;
+  }
+
+  // ---- transition logging ----
+  function recordTransition(which, prev, next, desc){
+    if (prev===next) return;
+    var label = which==="olo"?"Olo":(which==="dd"?"DoorDash":"System");
+    var entry = { t:Date.now(), which:which, label:label, from:prev, to:next, desc:desc||"" };
+    log.unshift(entry);
+    if (log.length>500) log.length=500;
+    store.set("ofs_log", JSON.stringify(log));
+    renderLog();
+    if (prev!==null){
+      var down = (next==="down"||next==="warn");
+      notifyChange(label, prev, next, down);
+    }
+  }
+
+  function renderLog(){
+    var el = document.getElementById("logBody");
+    if(!log.length){ el.innerHTML = '<div class="log-empty">No status changes recorded yet. Every time either service flips state, it\'s stamped here.</div>'; return; }
+    el.innerHTML = log.map(function(e){
+      var cls = e.which==="olo"?"olo":(e.which==="dd"?"dd":"sys");
+      var d = new Date(e.t);
+      var time = d.toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      var fromW = e.from? WORDS[e.from] : "start";
+      var msg = '<span class="to-'+e.from+'">'+esc(fromW)+'</span> → <span class="to-'+e.to+'">'+esc(WORDS[e.to])+'</span>';
+      return '<div class="log-row"><span class="log-time">'+esc(time)+'</span>'+
+             '<span class="log-svc '+cls+'">'+esc(e.label)+'</span>'+
+             '<span class="log-msg">'+msg+(e.desc?' · '+esc(e.desc):'')+'</span></div>';
+    }).join("");
+  }
+
+  // ---- alerts ----
+  function beep(up){
+    if(!cfg.sound) return;
+    try{
+      var ctx = new (window.AudioContext||window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type="sine"; o.frequency.value = up?660:392;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+0.45);
+      o.start(); o.stop(ctx.currentTime+0.46);
+    }catch(e){}
+  }
+  function notifyChange(label, prev, next, isBad){
+    beep(!isBad);
+    if (cfg.notify && "Notification" in window && Notification.permission==="granted"){
+      try{ new Notification("Order Flow Status", {
+        body: label+": "+WORDS[prev]+" → "+WORDS[next], silent:true }); }catch(e){}
+    }
+    toast(label+": "+WORDS[prev]+" → "+WORDS[next]);
+  }
+  function handleFlash(isDown){
+    if (!cfg.flash){ if(flashTimer){clearInterval(flashTimer);flashTimer=null;document.title=origTitle;} return; }
+    if (isDown && !flashTimer){
+      var on=false;
+      flashTimer = setInterval(function(){ document.title = on?origTitle:"⚠ OUTAGE — Order Flow"; on=!on; }, 1000);
+    } else if (!isDown && flashTimer){
+      clearInterval(flashTimer); flashTimer=null; document.title=origTitle;
+    }
+  }
+  var toastTimer;
+  function toast(msg){
+    var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer=setTimeout(function(){t.classList.remove("show");},3200);
+  }
+
+  // ---- main poll ----
+  function poll(){
+    var oloP = fetchFeed(cfg.oloUrl).then(function(d){ latest.olo=d; return renderCard("olo",d,null); })
+                                    .catch(function(e){ return renderCard("olo",null,e.message); });
+    var ddP  = fetchFeed(cfg.ddUrl).then(function(d){ latest.dd=d; return renderCard("dd",d,null); })
+                                   .catch(function(e){ return renderCard("dd",null,e.message); });
+
+    Promise.all([oloP,ddP]).then(function(res){
+      var oloR=res[0], ddR=res[1];
+      renderVerdict(oloR, ddR);
+      recordTransition("olo", lastState.olo, oloR.state, oloR.desc);
+      recordTransition("dd",  lastState.dd,  ddR.state,  ddR.desc);
+      lastState.olo = oloR.state; lastState.dd = ddR.state;
+      scheduleNext();
+    });
+  }
+
+  function scheduleNext(){
+    if(timer) clearTimeout(timer);
+    nextAt = Date.now() + cfg.interval*1000;
+    timer = setTimeout(poll, cfg.interval*1000);
+  }
+  function tickCountdown(){
+    var el=document.getElementById("countdown");
+    if(!nextAt){ el.textContent="—"; return; }
+    var s = Math.max(0, Math.round((nextAt-Date.now())/1000));
+    el.textContent = "next check in "+s+"s";
+  }
+
+  // ---- export / copy ----
+  function copySummary(){
+    var lines = ["ORDER FLOW STATUS — evidence summary","generated "+new Date().toLocaleString(),""];
+    function block(which, data){
+      var label = which==="olo"?"OLO":"DOORDASH";
+      if(!data){ lines.push(label+": feed unreachable at check time"); return; }
+      var ind = data.status&&data.status.description||"unknown";
+      lines.push(label+": "+ind);
+      (data.incidents||[]).filter(function(i){return i.status!=="resolved"&&i.status!=="completed";})
+        .forEach(function(i){
+          var u=(i.incident_updates&&i.incident_updates[0])||{};
+          lines.push("  • ["+(i.impact||"")+"] "+i.name+" ("+i.status+", "+fmtTime(i.updated_at||i.created_at)+")");
+          if(u.body) lines.push("    "+u.body.replace(/\s+/g," ").slice(0,240));
+        });
+    }
+    block("olo", latest.olo); lines.push(""); block("dd", latest.dd);
+    lines.push(""); lines.push("RECENT STATE CHANGES:");
+    log.slice(0,12).forEach(function(e){
+      lines.push("  "+new Date(e.t).toLocaleString()+"  "+e.label+": "+(e.from?WORDS[e.from]:"start")+" -> "+WORDS[e.to]);
+    });
+    var text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(function(){ toast("Evidence summary copied"); },
+      function(){ toast("Copy failed — select and copy manually"); });
+  }
+  function exportJSON(){
+    var blob = new Blob([JSON.stringify({generated:new Date().toISOString(), log:log, olo:latest.olo, doordash:latest.dd}, null, 2)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="order-flow-status-"+new Date().toISOString().slice(0,16).replace(/[:T]/g,"-")+".json";
+    a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+  }
+
+  // ---- settings wiring ----
+  function fillSettings(){
+    document.getElementById("intervalSel").value = cfg.interval;
+    document.getElementById("proxyInput").value = cfg.proxy;
+    document.getElementById("oloUrl").value = cfg.oloUrl;
+    document.getElementById("ddUrl").value = cfg.ddUrl;
+    setTg("tgSound", cfg.sound); setTg("tgNotify", cfg.notify); setTg("tgFlash", cfg.flash);
+  }
+  function setTg(id,on){ document.getElementById(id).classList.toggle("on", !!on); }
+  function tg(id){ return document.getElementById(id).classList.contains("on"); }
+
+  document.getElementById("settingsBtn").addEventListener("click", function(){
+    document.getElementById("settings").classList.toggle("open");
+    document.getElementById("settings").scrollIntoView({behavior:"smooth",block:"start"});
+  });
+  document.getElementById("setHead").addEventListener("click", function(){
+    document.getElementById("settings").classList.toggle("open");
+  });
+  ["tgSound","tgNotify","tgFlash"].forEach(function(id){
+    document.getElementById(id).addEventListener("click", function(){
+      this.classList.toggle("on");
+      if(id==="tgNotify" && this.classList.contains("on") && "Notification" in window){
+        Notification.requestPermission();
+      }
+    });
+  });
+  document.getElementById("saveBtn").addEventListener("click", function(){
+    cfg.interval = parseInt(document.getElementById("intervalSel").value,10)||60;
+    cfg.proxy = document.getElementById("proxyInput").value.trim();
+    cfg.oloUrl = document.getElementById("oloUrl").value.trim()||DEFAULTS.oloUrl;
+    cfg.ddUrl = document.getElementById("ddUrl").value.trim()||DEFAULTS.ddUrl;
+    cfg.sound=tg("tgSound"); cfg.notify=tg("tgNotify"); cfg.flash=tg("tgFlash");
+    saveCfg(cfg); toast("Settings saved"); poll();
+  });
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    cfg = JSON.parse(JSON.stringify(DEFAULTS)); saveCfg(cfg); fillSettings(); toast("Reset to defaults"); poll();
+  });
+  document.getElementById("refreshBtn").addEventListener("click", poll);
+  document.getElementById("copyLogBtn").addEventListener("click", copySummary);
+  document.getElementById("exportBtn").addEventListener("click", exportJSON);
+  document.getElementById("clearLogBtn").addEventListener("click", function(){
+    if(confirm("Clear the evidence log on this device?")){ log=[]; store.set("ofs_log","[]"); renderLog(); }
+  });
+
+  // ---- boot ----
+  document.getElementById("tz").textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+  fillSettings();
+  renderLog();
+  poll();
+  countdownTimer = setInterval(tickCountdown, 1000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) poll(); });
+})();
+</script>
+</body>
+</html>
